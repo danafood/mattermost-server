@@ -56,7 +56,10 @@
         "EnablePreviewFeatures": true,
         "CloseUnusedDirectMessages": false,
         "EnableTutorial": true,
-        "ExperimentalEnableDefaultChannelLeaveJoinMessages": true
+        "ExperimentalEnableDefaultChannelLeaveJoinMessages": true,
+        "ExperimentalGroupUnreadChannels": false,
+        "ImageProxyType": "",
+        "ImageProxyURL": ""
     },
     "TeamSettings": {
         "SiteName": "Mattermost",
@@ -177,6 +180,7 @@
         "MaxBurst": 100,
         "MemoryStoreSize": 10000,
         "VaryByRemoteAddr": true,
+        "VaryByUser": false,
         "VaryByHeader": ""
     },
     "PrivacySettings": {

@@ -4,6 +4,7 @@
 package sqlstore
 
 import (
+	"database/sql"
 	"net/http"
 
 	"github.com/mattermost/mattermost-server/einterfaces"
@@ -46,6 +47,7 @@ func (es SqlEmojiStore) CreateIndexesIfNotExists() {
 	es.CreateIndexIfNotExists("idx_emoji_update_at", "Emoji", "UpdateAt")
 	es.CreateIndexIfNotExists("idx_emoji_create_at", "Emoji", "CreateAt")
 	es.CreateIndexIfNotExists("idx_emoji_delete_at", "Emoji", "DeleteAt")
+	es.CreateIndexIfNotExists("idx_emoji_name", "Emoji", "Name")
 }
 
 func (es SqlEmojiStore) Save(emoji *model.Emoji) store.StoreChannel {
@@ -117,6 +119,9 @@ func (es SqlEmojiStore) GetByName(name string) store.StoreChannel {
 				Name = :Name
 				AND DeleteAt = 0`, map[string]interface{}{"Name": name}); err != nil {
 			result.Err = model.NewAppError("SqlEmojiStore.GetByName", "store.sql_emoji.get_by_name.app_error", nil, "name="+name+", "+err.Error(), http.StatusInternalServerError)
+			if err == sql.ErrNoRows {
+				result.Err.StatusCode = http.StatusNotFound
+			}
 		} else {
 			result.Data = emoji
 		}
@@ -160,5 +165,33 @@ func (es SqlEmojiStore) Delete(id string, time int64) store.StoreChannel {
 		}
 
 		emojiCache.Remove(id)
+	})
+}
+
+func (es SqlEmojiStore) Search(name string, prefixOnly bool, limit int) store.StoreChannel {
+	return store.Do(func(result *store.StoreResult) {
+		var emojis []*model.Emoji
+
+		term := ""
+		if !prefixOnly {
+			term = "%"
+		}
+
+		term += name + "%"
+
+		if _, err := es.GetReplica().Select(&emojis,
+			`SELECT
+				*
+			FROM
+				Emoji
+			WHERE
+				Name LIKE :Name
+				AND DeleteAt = 0
+				ORDER BY Name
+				LIMIT :Limit`, map[string]interface{}{"Name": term, "Limit": limit}); err != nil {
+			result.Err = model.NewAppError("SqlEmojiStore.Search", "store.sql_emoji.get_by_name.app_error", nil, "name="+name+", "+err.Error(), http.StatusInternalServerError)
+		} else {
+			result.Data = emojis
+		}
 	})
 }

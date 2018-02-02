@@ -104,7 +104,7 @@ func (a *App) UpdateTeam(team *model.Team) (*model.Team, *model.AppError) {
 		return nil, result.Err
 	}
 
-	a.sendUpdatedTeamEvent(oldTeam)
+	a.sendTeamEvent(oldTeam, model.WEBSOCKET_EVENT_UPDATE_TEAM)
 
 	return oldTeam, nil
 }
@@ -122,17 +122,17 @@ func (a *App) PatchTeam(teamId string, patch *model.TeamPatch) (*model.Team, *mo
 		return nil, err
 	}
 
-	a.sendUpdatedTeamEvent(updatedTeam)
+	a.sendTeamEvent(updatedTeam, model.WEBSOCKET_EVENT_UPDATE_TEAM)
 
 	return updatedTeam, nil
 }
 
-func (a *App) sendUpdatedTeamEvent(team *model.Team) {
+func (a *App) sendTeamEvent(team *model.Team, event string) {
 	sanitizedTeam := &model.Team{}
 	*sanitizedTeam = *team
 	sanitizedTeam.Sanitize()
 
-	message := model.NewWebSocketEvent(model.WEBSOCKET_EVENT_UPDATE_TEAM, "", "", "", nil)
+	message := model.NewWebSocketEvent(event, "", "", "", nil)
 	message.Add("team", sanitizedTeam.ToJson())
 	a.Go(func() {
 		a.Publish(message)
@@ -622,7 +622,7 @@ func (a *App) LeaveTeam(team *model.Team, user *model.User, requestorId string) 
 				l4g.Error(utils.T("api.channel.post_user_add_remove_message_and_forget.error"), err)
 			}
 		} else {
-			if err := a.PostRemoveFromChannelMessage(user.Id, user, channel); err != nil {
+			if err := a.postRemoveFromTeamMessage(user, channel); err != nil {
 				l4g.Error(utils.T("api.channel.post_user_add_remove_message_and_forget.error"), err)
 			}
 		}
@@ -669,6 +669,24 @@ func (a *App) postLeaveTeamMessage(user *model.User, channel *model.Channel) *mo
 
 	if _, err := a.CreatePost(post, channel, false); err != nil {
 		return model.NewAppError("postRemoveFromChannelMessage", "api.channel.post_user_add_remove_message_and_forget.error", nil, err.Error(), http.StatusInternalServerError)
+	}
+
+	return nil
+}
+
+func (a *App) postRemoveFromTeamMessage(user *model.User, channel *model.Channel) *model.AppError {
+	post := &model.Post{
+		ChannelId: channel.Id,
+		Message:   fmt.Sprintf(utils.T("api.team.remove_user_from_team.removed"), user.Username),
+		Type:      model.POST_REMOVE_FROM_TEAM,
+		UserId:    user.Id,
+		Props: model.StringInterface{
+			"username": user.Username,
+		},
+	}
+
+	if _, err := a.CreatePost(post, channel, false); err != nil {
+		return model.NewAppError("postRemoveFromTeamMessage", "api.channel.post_user_add_remove_message_and_forget.error", nil, err.Error(), http.StatusInternalServerError)
 	}
 
 	return nil
@@ -802,6 +820,8 @@ func (a *App) PermanentDeleteTeam(team *model.Team) *model.AppError {
 		return result.Err
 	}
 
+	a.sendTeamEvent(team, model.WEBSOCKET_EVENT_DELETE_TEAM)
+
 	return nil
 }
 
@@ -815,6 +835,8 @@ func (a *App) SoftDeleteTeam(teamId string) *model.AppError {
 	if result := <-a.Srv.Store.Team().Update(team); result.Err != nil {
 		return result.Err
 	}
+
+	a.sendTeamEvent(team, model.WEBSOCKET_EVENT_DELETE_TEAM)
 
 	return nil
 }

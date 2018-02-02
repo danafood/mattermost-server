@@ -214,6 +214,10 @@ type ServiceSettings struct {
 	EnablePreviewFeatures                             *bool
 	EnableTutorial                                    *bool
 	ExperimentalEnableDefaultChannelLeaveJoinMessages *bool
+	ExperimentalGroupUnreadChannels                   *bool
+	ImageProxyType                                    *string
+	ImageProxyURL                                     *string
+	ImageProxyOptions                                 *string
 }
 
 func (s *ServiceSettings) SetDefaults() {
@@ -250,7 +254,7 @@ func (s *ServiceSettings) SetDefaults() {
 	}
 
 	if s.AllowedUntrustedInternalConnections == nil {
-		s.AllowedUntrustedInternalConnections = new(string)
+		s.AllowedUntrustedInternalConnections = NewString("")
 	}
 
 	if s.EnableMultifactorAuthentication == nil {
@@ -417,6 +421,22 @@ func (s *ServiceSettings) SetDefaults() {
 
 	if s.ExperimentalEnableDefaultChannelLeaveJoinMessages == nil {
 		s.ExperimentalEnableDefaultChannelLeaveJoinMessages = NewBool(true)
+	}
+
+	if s.ExperimentalGroupUnreadChannels == nil {
+		s.ExperimentalGroupUnreadChannels = NewBool(false)
+	}
+
+	if s.ImageProxyType == nil {
+		s.ImageProxyType = NewString("")
+	}
+
+	if s.ImageProxyURL == nil {
+		s.ImageProxyURL = NewString("")
+	}
+
+	if s.ImageProxyOptions == nil {
+		s.ImageProxyOptions = NewString("")
 	}
 }
 
@@ -782,7 +802,8 @@ type RateLimitSettings struct {
 	PerSec           *int
 	MaxBurst         *int
 	MemoryStoreSize  *int
-	VaryByRemoteAddr bool
+	VaryByRemoteAddr *bool
+	VaryByUser       *bool
 	VaryByHeader     string
 }
 
@@ -801,6 +822,14 @@ func (s *RateLimitSettings) SetDefaults() {
 
 	if s.MemoryStoreSize == nil {
 		s.MemoryStoreSize = NewInt(10000)
+	}
+
+	if s.VaryByRemoteAddr == nil {
+		s.VaryByRemoteAddr = NewBool(true)
+	}
+
+	if s.VaryByUser == nil {
+		s.VaryByUser = NewBool(false)
 	}
 }
 
@@ -1661,12 +1690,8 @@ func (o *Config) Clone() *Config {
 }
 
 func (o *Config) ToJson() string {
-	b, err := json.Marshal(o)
-	if err != nil {
-		return ""
-	} else {
-		return string(b)
-	}
+	b, _ := json.Marshal(o)
+	return string(b)
 }
 
 func (o *Config) GetSSOService(service string) *SSOSettings {
@@ -1683,14 +1708,9 @@ func (o *Config) GetSSOService(service string) *SSOSettings {
 }
 
 func ConfigFromJson(data io.Reader) *Config {
-	decoder := json.NewDecoder(data)
-	var o Config
-	err := decoder.Decode(&o)
-	if err == nil {
-		return &o
-	} else {
-		return nil
-	}
+	var o *Config
+	json.NewDecoder(data).Decode(&o)
+	return o
 }
 
 func (o *Config) SetDefaults() {
@@ -2048,6 +2068,16 @@ func (ss *ServiceSettings) isValid() *AppError {
 
 	if len(*ss.ListenAddress) == 0 {
 		return NewAppError("Config.IsValid", "model.config.is_valid.listen_address.app_error", nil, "", http.StatusBadRequest)
+	}
+
+	switch *ss.ImageProxyType {
+	case "", "willnorris/imageproxy":
+	case "atmos/camo":
+		if *ss.ImageProxyOptions == "" {
+			return NewAppError("Config.IsValid", "model.config.is_valid.atmos_camo_image_proxy_options.app_error", nil, "", http.StatusBadRequest)
+		}
+	default:
+		return NewAppError("Config.IsValid", "model.config.is_valid.image_proxy_type.app_error", nil, "", http.StatusBadRequest)
 	}
 
 	return nil

@@ -300,6 +300,9 @@ update-zoom-plugin: ## Updates Zoom plugin.
 check-licenses: ## Checks license status.
 	./scripts/license-check.sh $(TE_PACKAGES) $(EE_PACKAGES)
 
+check-prereqs: ## Checks prerequisite software status.
+	./scripts/prereq-check.sh
+	
 check-style: govet gofmt check-licenses ## Runs govet and gofmt against all packages.
 
 test-te-race: ## Checks for race conditions in the team edition.
@@ -377,6 +380,15 @@ cover: ## Runs the golang coverage tool. You must run the unit tests first.
 	$(GO) tool cover -html=cover.out
 	$(GO) tool cover -html=ecover.out
 
+test-data: start-docker ## Add test data to the local instance.
+	$(GO) run $(GOFLAGS) $(GO_LINKER_FLAGS) $(PLATFORM_FILES) sampledata -w 1
+
+	@echo You may need to restart the Mattermost server before using the following
+	@echo ====================================================================================
+	@echo Login with a system admin account email=user-0@sample.mattermost.com password=user-0
+	@echo Login with a regular account email=user-1@sample.mattermost.com password=user-1
+	@echo ====================================================================================
+
 run-server: start-docker ## Starts the server.
 	@echo Running mattermost for development
 
@@ -400,7 +412,7 @@ run-client-fullmap: ## Runs the webapp with source code mapping (slower; better 
 
 	cd $(BUILD_WEBAPP_DIR) && $(MAKE) run-fullmap
 
-run: run-server run-client ## Runs the server and webapp.
+run: check-prereqs run-server run-client ## Runs the server and webapp.
 
 run-fullmap: run-server run-client-fullmap ## Same as run but with a full sourcemap for client.
 
@@ -465,7 +477,7 @@ clean: stop-docker ## Clean up everything except persistant server data.
 
 	cd $(BUILD_WEBAPP_DIR) && $(MAKE) clean
 
-	find . -type d -name data | xargs rm -r
+	find . -type d -name data -not -path './vendor/*' | xargs rm -r
 	rm -rf logs
 
 	rm -f mattermost.log

@@ -154,6 +154,7 @@ type ChannelStore interface {
 	AnalyticsTypeCount(teamId string, channelType string) StoreChannel
 	ExtraUpdateByUser(userId string, time int64) StoreChannel
 	GetMembersForUser(teamId string, userId string) StoreChannel
+	AutocompleteInTeam(teamId string, term string) StoreChannel
 	SearchInTeam(teamId string, term string) StoreChannel
 	SearchMore(userId string, teamId string, term string) StoreChannel
 	GetMembersByIds(channelId string, userIds []string) StoreChannel
@@ -393,6 +394,7 @@ type EmojiStore interface {
 	GetByName(name string) StoreChannel
 	GetList(offset, limit int, sort string) StoreChannel
 	Delete(id string, time int64) StoreChannel
+	Search(name string, prefixOnly bool, limit int) StoreChannel
 }
 
 type StatusStore interface {
